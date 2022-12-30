@@ -2,8 +2,9 @@
 //https://zhuanlan.zhihu.com/p/435726094
 /* ELSL部分 */
 /*--------------------------------------------------------------------------------------------------- */
+// 绘制球体的着色器
 // 顶点着色器
-var VSHADER_SOURCE = "" +
+var SPHERE_VSHADER_SOURCE = "" +
     "attribute vec3 a_Position;\n" +            //物体在世界坐标系下的坐标
     "uniform vec3 u_Color;\n" +                 //物体基底颜色
     "uniform vec3 u_LightColor;\n" +            //入射光颜色
@@ -23,7 +24,7 @@ var VSHADER_SOURCE = "" +
     "}\n"
 
 // 片段着色器
-var FSHADER_SOURCE = "" +
+var SPHERE_FSHADER_SOURCE = "" +
     "#ifdef GL_ES\n" +
     " precision mediump float;\n" +
     "#endif\n" +
@@ -31,6 +32,26 @@ var FSHADER_SOURCE = "" +
     "void main() {\n" +
     "   gl_FragColor = v_color;\n" +
     "}\n"
+
+// 绘制目标的着色器
+var TARGET_VSHADER_SOURCE =
+    'attribute vec4 a_Position;\n' +
+    "uniform vec3 u_Color;\n" +
+    "varying vec4 v_Color;\n" +
+    'void main() {\n' +
+    '  gl_Position = a_Position;\n' +
+    '  gl_PointSize = 10.0;\n' +
+    '  v_Color = vec4(u_Color, 1.0);\n' +
+    '}\n';
+
+var TARGET_FSHADER_SOURCE =
+    "#ifdef GL_ES\n" +
+    " precision mediump float;\n" +
+    "#endif\n" +
+    "varying vec4 v_color;\n" +         //漫反射后的rgb值
+    'void main() {\n' +
+    '  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n' +
+    '}\n';
 
 /* js部分 */
 /*--------------------------------------------------------------------------------------------------- */
@@ -48,10 +69,12 @@ var longitudeBands = 36;//经度带
 // 绘制类型
 var TRIANGLE_MODE = 'TRIANGLE'
 var LINE_MODE = 'LINE'
+var POINT_MODE = 'POINT'
 // 旋转矩阵绕Y轴的旋转角度
 var rotateAngle = 0.0
 // 不同着色器
 var sphereProgram = {}  //球体着色器
+var targetProgram = {}  //目标着色器
 
 /**
  * 主函数
@@ -65,8 +88,10 @@ function main() {
     }
 
     // 初始化球体着色器
-    sphereProgram = createProgram(gl, VSHADER_SOURCE, FSHADER_SOURCE);
-    if (!sphereProgram) {
+    sphereProgram = createProgram(gl, SPHERE_VSHADER_SOURCE, SPHERE_FSHADER_SOURCE);
+    // 初始化目标着色器
+    targetProgram = createProgram(gl, TARGET_VSHADER_SOURCE, TARGET_FSHADER_SOURCE);
+    if (!sphereProgram || !targetProgram) {
         console.log("无法初始化着色器");
         return;
     }
@@ -82,18 +107,24 @@ function main() {
 
     // 绘制面型球体
     var obj = {}
-    var indices_length = initVertexBuffer(TRIANGLE_MODE, precision, precision, obj)
+    var indices_length = initSphereVertexBuffer(TRIANGLE_MODE, precision, precision, obj)
     initMatrix(obj)
-    draw(sphereProgram, indices_length, [0.9, 0.5, 0.3], TRIANGLE_MODE, obj);
+    drawSphere(sphereProgram, indices_length, [0.9, 0.5, 0.3], TRIANGLE_MODE, obj);
 
     // 设置多边形偏移值
     gl.polygonOffset(0.00001, 0.00001);
 
     // 绘制线型球体
     var obj = {}
-    var indices_length = initVertexBuffer(LINE_MODE, latitudeBands, longitudeBands, obj)
+    var indices_length = initSphereVertexBuffer(LINE_MODE, latitudeBands, longitudeBands, obj)
     initMatrix(obj)
-    draw(sphereProgram, indices_length, [0.0, 0.0, 0.0], LINE_MODE, obj);
+    drawSphere(sphereProgram, indices_length, [0.0, 0.0, 0.0], LINE_MODE, obj);
+
+    // 绘制目标
+    var obj = {}
+    var n = initTargetVertexBuffer(obj);
+    drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
+
 }
 
 
@@ -228,14 +259,14 @@ function generateVertexCoordinate(type, pre1, pre2) {
 
 
 /**
- * 初始化顶点缓冲区
+ * 初始化球体的顶点缓冲区
  * @param {*} type 绘制类型（面/线）
  * @param {*} pre1 绘制精度1
  * @param {*} pre2 绘制精度2
  * @param {*} obj 数据存储对象
  * @returns 顶点个数
  */
-function initVertexBuffer(type = TRIANGLE_MODE, pre1, pre2, obj) {
+function initSphereVertexBuffer(type = TRIANGLE_MODE, pre1, pre2, obj) {
     // 初始化顶点相关坐标
     let { verticesData, indicesData, normalsData } = generateVertexCoordinate(type, pre1, pre2)
     var vertices = new Float32Array(verticesData);
@@ -276,6 +307,25 @@ function initMatrix(obj) {
     obj.modeViewProjectMatrix = projMatrix.multiply(obj.modelViewMatrix);
 }
 
+
+/**
+ * 初始化目标的顶点缓冲区
+ * @param {*} obj 数据存储对象
+ * @returns 顶点个数
+ */
+function initTargetVertexBuffer(obj) {
+    // 计算目标点坐标
+    var { x, y, z } = transformSphericalToWebGL(30, 60, 1)
+    var vertices = new Float32Array([
+        x, y, z
+    ]);
+    // 点的个数
+    var n = 1;
+    // 适用对象返回缓冲区
+    obj.vertexBuffer = initArrayBufferForLaterUse(gl, vertices, 3, gl.FLOAT);
+    //返回点的个数
+    return n;
+}
 
 /**
  * 初始化缓冲区对象
@@ -336,21 +386,23 @@ function initElementArrayBufferForLaterUse(gl, data, type) {
  */
 function initAttributeVariable(gl, a_attribute, buffer) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.vertexAttribPointer(a_attribute, buffer.num, buffer.type, false, 0, 0);
+    //TODO:
+    // gl.vertexAttribPointer(a_attribute, buffer.num, buffer.type, false, 0, 0);
+    gl.vertexAttribPointer(a_attribute, buffer.num, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(a_attribute);
 }
 
 
 /**
- * 绘制
+ * 绘制球体
  * @param {*} program 着色器名
  * @param {*} indices_length 点的个数
  * @param {*} color 颜色
- * @param {*} type 每个数据的类型
- * @param {*} 数据存储对象 
+ * @param {*} mode 绘制类型
+ * @param {*} obj 数据存储对象 
  * @returns 是否绘制成功
  */
-function draw(program, indices_length, color, type = TRIANGLE_MODE, obj) {
+function drawSphere(program, indices_length, color, mode = TRIANGLE_MODE, obj) {
     // 开启着色器
     gl.useProgram(program);
 
@@ -390,17 +442,49 @@ function draw(program, indices_length, color, type = TRIANGLE_MODE, obj) {
     }
     initAttributeVariable(gl, a_Normal, obj.normalBuffer)
 
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBuffer); //绑定索引
+    //绑定索引缓冲区对象
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBuffer);
 
     // 绘制
-    if (type === TRIANGLE_MODE) {
+    if (mode === TRIANGLE_MODE) {
         gl.drawElements(gl.TRIANGLES, indices_length, gl.UNSIGNED_SHORT, 0);
-    } else if (type === LINE_MODE) {
+    } else if (mode === LINE_MODE) {
         gl.drawElements(gl.LINES, indices_length, gl.UNSIGNED_SHORT, 0);
     }
 
     // 自动旋转
     // requestAnimationFrame(main)
     // rotateAngle += 1.0
+}
+
+
+/**
+ * 绘制目标
+ * @param {*} program 着色器名
+ * @param {*} n 点的个数
+ * @param {*} color 颜色
+ * @param {*} mode 绘制类型
+ * @param {*} obj 数据存储对象
+ * @returns 是否绘制成功
+ */
+function drawTargets(program, n, color, mode = POINT_MODE, obj) {
+    // 开启着色器
+    gl.useProgram(program)
+
+    // 目标颜色
+    let u_Color = gl.getUniformLocation(program, 'u_Color');
+    gl.uniform3fv(u_Color, color);
+
+    // 目标位置
+    var a_Position = gl.getAttribLocation(program, 'a_Position');
+    if (a_Position < 0) {
+        console.log('Failed to get the storage location of a_Position');
+        return -1;
+    }
+    initAttributeVariable(gl, a_Position, obj.vertexBuffer)
+
+    //绘制
+    if (mode === POINT_MODE) {
+        gl.drawArrays(gl.POINTS, 0, n);
+    }
 }
