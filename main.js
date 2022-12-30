@@ -36,10 +36,11 @@ var SPHERE_FSHADER_SOURCE = "" +
 // 绘制目标的着色器
 var TARGET_VSHADER_SOURCE =
     'attribute vec4 a_Position;\n' +
+    "uniform mat4 u_ModelViewPersMatrix;\n" +   //模型视图投影矩阵
     "uniform vec3 u_Color;\n" +
     "varying vec4 v_Color;\n" +
     'void main() {\n' +
-    '  gl_Position = a_Position;\n' +
+    '  gl_Position = u_ModelViewPersMatrix * a_Position;\n' +
     '  gl_PointSize = 10.0;\n' +
     '  v_Color = vec4(u_Color, 1.0);\n' +
     '}\n';
@@ -121,8 +122,13 @@ function main() {
     drawSphere(sphereProgram, indices_length, [0.0, 0.0, 0.0], LINE_MODE, obj);
 
     // 绘制目标
+    // 传入参数：弧度制纬度 弧度制精度 半径
+    var tar1 = { direction: 30, pitch: 60, radius: 2 }  //目标1
+    var tar2 = { direction: 45, pitch: 45, radius: 2 }  // 目标2
+    var targetArray = [tar1, tar2]  //目标数组
     var obj = {}
-    var n = initTargetVertexBuffer(obj);
+    var n = initTargetVertexBuffer(obj, targetArray);
+    initMatrix(obj)
     drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
 
 }
@@ -309,20 +315,38 @@ function initMatrix(obj) {
 
 
 /**
+ * 转换角度：角度制 -> 弧度制
+ * @param {*} angle 角度制角度
+ * @returns 弧度制角度
+ */
+function transformAngleToRadian(angle) {
+    return angle * Math.PI / 180
+}
+
+/**
  * 初始化目标的顶点缓冲区
  * @param {*} obj 数据存储对象
  * @returns 顶点个数
  */
-function initTargetVertexBuffer(obj) {
+function initTargetVertexBuffer(obj, array) {
+    // 目标点个数
+    var n = array.length;
+
     // 计算目标点坐标
-    var { x, y, z } = transformSphericalToWebGL(30, 60, 1)
-    var vertices = new Float32Array([
-        x, y, z
-    ]);
-    // 点的个数
-    var n = 1;
+    // 传入参数：弧度制纬度 弧度制精度 半径
+    var verticesData = []
+    for (let i = 0; i < n; i++) {
+        let direction = transformAngleToRadian(array[i].direction)
+        let pitch = transformAngleToRadian(array[i].pitch)
+        let radius = array[i].radius
+        let { x, y, z } = transformSphericalToWebGL(direction, pitch, radius)
+        verticesData.push(x, y, z)
+    }
+    var vertices = new Float32Array(verticesData)
+
     // 适用对象返回缓冲区
     obj.vertexBuffer = initArrayBufferForLaterUse(gl, vertices, 3, gl.FLOAT);
+
     //返回点的个数
     return n;
 }
@@ -470,6 +494,10 @@ function drawSphere(program, indices_length, color, mode = TRIANGLE_MODE, obj) {
 function drawTargets(program, n, color, mode = POINT_MODE, obj) {
     // 开启着色器
     gl.useProgram(program)
+
+    // 模型视图投影矩阵
+    var u_ModelViewPersMatrix = gl.getUniformLocation(program, 'u_ModelViewPersMatrix');
+    gl.uniformMatrix4fv(u_ModelViewPersMatrix, false, obj.modeViewProjectMatrix.elements);
 
     // 目标颜色
     let u_Color = gl.getUniformLocation(program, 'u_Color');
