@@ -56,6 +56,29 @@ var TARGET_FSHADER_SOURCE =
 
 /* js部分 */
 /*--------------------------------------------------------------------------------------------------- */
+/* 控制面板 */
+// 获取元素
+var bt_roundscan = document.getElementById('roundscan')
+var bt_sectorscan = document.getElementById('sectorscan')
+var ip_startdirection = document.getElementById('startdirection')
+var ip_enddirection = document.getElementById('enddirection')
+// var bt_starescan = document.getElementById('starescan')
+
+// 工作模式相关参数
+var isRoundScan = false                         // 周扫模式
+var isSectorScan = false                        // 扇扫模式
+var startDirection = 0                          // 起始方位角（扇扫模式下有效）
+var endDirection = 360                          // 终止方位角（扇扫模式下有效）
+var isAdd = true                                // 角度增加/减小（扇扫模式下有效）
+// var isStareScan = false
+// var stareDirection = 0
+// var starePitch = 0
+
+var MIN_DIRECTION = 0.0                         // 最小方位角
+var MAX_DIRECTION = 360.0                       // 最大方位角
+
+/* WebGL绘制 */
+/*--------------------------------------------------------------------------------------------------- */
 // 获取容器
 var canvas = document.getElementById("webgl");
 var gl = getWebGLContext(canvas);
@@ -82,6 +105,9 @@ var targetProgram = {}  //目标着色器
  * @returns 
  */
 function main() {
+    // 初始化工作模式
+    initControlMode()
+
     // 判断是否有效
     if (!gl) {
         console.log("你的浏览器不支持WebGL");
@@ -116,10 +142,10 @@ function main() {
     gl.polygonOffset(0.00001, 0.00001);
 
     // 绘制线型球体
-    var obj = {}
-    var indices_length = initSphereVertexBuffer(LINE_MODE, latitudeBands, longitudeBands, obj)
-    initMatrix(obj)
-    drawSphere(sphereProgram, indices_length, [0.0, 0.0, 0.0], LINE_MODE, obj);
+    // var obj = {}
+    // var indices_length = initSphereVertexBuffer(LINE_MODE, latitudeBands, longitudeBands, obj)
+    // initMatrix(obj)
+    // drawSphere(sphereProgram, indices_length, [0.0, 0.0, 0.0], LINE_MODE, obj);
 
     // 绘制目标
     // 传入参数：弧度制纬度 弧度制精度 半径
@@ -130,6 +156,7 @@ function main() {
     var n = initTargetVertexBuffer(obj, targetArray);
     initMatrix(obj)
     drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
+
 
 }
 
@@ -477,8 +504,28 @@ function drawSphere(program, indices_length, color, mode = TRIANGLE_MODE, obj) {
     }
 
     // 自动旋转
-    // requestAnimationFrame(main)
-    // rotateAngle += 1.0
+    if (isRoundScan) {
+        requestAnimationFrame(main)
+        rotateAngle = (rotateAngle + 1.0) % 360.0
+    }
+    if (isSectorScan) {
+        requestAnimationFrame(main)
+        // 处于角度增加状态
+        if (isAdd) {
+            rotateAngle = (rotateAngle + 1.0) % 360.0
+            if (rotateAngle >= endDirection) {
+                rotateAngle = endDirection
+                isAdd = false
+            }
+        } else {
+            rotateAngle = (rotateAngle - 1.0) % 360.0
+            if (rotateAngle <= startDirection) {
+                rotateAngle = startDirection
+                isAdd = true
+            }
+        }
+    }
+
 }
 
 
@@ -515,4 +562,37 @@ function drawTargets(program, n, color, mode = POINT_MODE, obj) {
     if (mode === POINT_MODE) {
         gl.drawArrays(gl.POINTS, 0, n);
     }
+}
+
+/**
+ * 初始化工作模式
+ */
+function initControlMode() {
+    // 绑定监听函数
+    bt_roundscan.onclick = function () {
+        isRoundScan = !isRoundScan
+        isSectorScan = false
+        // isStareScan = false
+        main()
+    }
+    bt_sectorscan.onclick = function () {
+        isSectorScan = !isSectorScan
+        isRoundScan = false
+        // isStareScan = false
+        startDirection = formatInputDirection(Number(ip_startdirection.value))
+        endDirection = formatInputDirection(Number(ip_enddirection.value))
+        main()
+    }
+}
+
+/**
+ * 格式化输入方位角
+ * @param {*} angle 方位角
+ * @param {*} min 最小方位角范围
+ * @param {*} max 最大方位角范围
+ * @returns 
+ */
+function formatInputDirection(angle, min, max) {
+    angle = angle < min ? min : angle > max ? max : angle
+    return angle
 }

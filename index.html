@@ -9,7 +9,14 @@
 </head>
 
 <body onload="main()">
-    <canvas id="webgl" width="400" height="400">
+    <canvas id="webgl" width="400" height="400"></canvas>
+    <br />
+    <button id="roundscan">周扫模式</button>
+    <br />
+    <button id="sectorscan">扇扫模式</button>
+    起始方位角：<input type="number" id="startdirection" />
+    终止方位角：<input type="number" id="enddirection" />
+    <!-- <button id="starescan">凝视模式</button> -->
 </body>
 
 <script src="./lib/webgl-utils.js"></script>
