@@ -564,6 +564,84 @@ function drawTargets(program, n, color, mode = POINT_MODE, obj) {
     }
 }
 
+
+/**
+ * 创建程序对象
+ * @param {*} gl webgl上下文
+ * @param {*} vshader 顶点着色器
+ * @param {*} fshader 片元着色器
+ * @returns 程序对象
+ */
+function createProgram(gl, vshader, fshader) {
+    //创建顶点着色器对象
+    var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vshader)
+    //创建片元着色器对象
+    var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fshader)
+    if (!vertexShader || !fragmentShader) {
+        return null
+    }
+
+    //创建程序对象program
+    var program = gl.createProgram()
+    if (!gl.createProgram()) {
+        return null
+    }
+
+    //分配顶点着色器和片元着色器到program
+    gl.attachShader(program, vertexShader)
+    gl.attachShader(program, fragmentShader)
+    //链接program
+    gl.linkProgram(program)
+
+    //检查程序对象是否连接成功
+    var linked = gl.getProgramParameter(program, gl.LINK_STATUS)
+    if (!linked) {
+        var error = gl.getProgramInfoLog(program)
+        console.log('程序对象连接失败: ' + error)
+        gl.deleteProgram(program)
+        gl.deleteShader(fragmentShader)
+        gl.deleteShader(vertexShader)
+        return null
+    }
+
+    //返回程序program对象
+    return program
+}
+
+
+/**
+ * 加载着色器
+ * @param {*} gl webgl上下文
+ * @param {*} type 着色器类型（顶点/片元）
+ * @param {*} source 着色器源码
+ * @returns 着色器
+ */
+function loadShader(gl, type, source) {
+    // 创建顶点着色器对象
+    var shader = gl.createShader(type)
+    if (shader == null) {
+        console.log('创建着色器失败')
+        return null
+    }
+
+    // 引入着色器源代码
+    gl.shaderSource(shader, source)
+
+    // 编译着色器
+    gl.compileShader(shader)
+
+    // 检查顶是否编译成功
+    var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
+    if (!compiled) {
+        var error = gl.getShaderInfoLog(shader)
+        console.log('编译着色器失败: ' + error)
+        gl.deleteShader(shader)
+        return null
+    }
+
+    return shader
+}
+
 /**
  * 初始化工作模式
  */
