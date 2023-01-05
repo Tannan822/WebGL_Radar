@@ -54,6 +54,28 @@ var TARGET_FSHADER_SOURCE =
     '  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n' +
     '}\n';
 
+// 绘制目标文本的着色器
+var TEXT_VSHADER_SOURCE =
+    "attribute vec4 a_Position;\n" +
+    "uniform mat4 u_ModelViewPersMatrix;\n" +
+    "attribute vec2 a_TexCoord;\n" +
+    "varying vec2 v_TexCoord;\n" +
+    "void main(){\n" +
+    "   gl_Position = u_ModelViewPersMatrix * a_Position;\n" +
+    "   v_TexCoord = a_TexCoord;\n" +
+    "}\n"
+
+var TEXT_FSHADER_SOURCE =
+    "#ifdef GL_ES\n" +
+    " precision mediump float;\n" +
+    "#endif\n" +
+    "uniform sampler2D u_Sampler;\n" +
+    "varying vec2 v_TexCoord;\n" +
+    "void main() {\n" +
+    "   gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n" +
+    "}\n"
+
+
 /* js部分 */
 /*--------------------------------------------------------------------------------------------------- */
 /* 控制面板 */
@@ -99,6 +121,7 @@ var rotateAngle = 0.0
 // 不同着色器
 var sphereProgram = {}  //球体着色器
 var targetProgram = {}  //目标着色器
+var textProgram = {}  //文本着色器
 
 /**
  * 主函数
@@ -118,7 +141,9 @@ function main() {
     sphereProgram = createProgram(gl, SPHERE_VSHADER_SOURCE, SPHERE_FSHADER_SOURCE);
     // 初始化目标着色器
     targetProgram = createProgram(gl, TARGET_VSHADER_SOURCE, TARGET_FSHADER_SOURCE);
-    if (!sphereProgram || !targetProgram) {
+    // 初始化目标文本着色器
+    textProgram = createProgram(gl, TEXT_VSHADER_SOURCE, TEXT_FSHADER_SOURCE);
+    if (!sphereProgram || !targetProgram || !textProgram) {
         console.log("无法初始化着色器");
         return;
     }
@@ -153,11 +178,22 @@ function main() {
     var tar2 = { direction: 45, pitch: 45, radius: 2 }  // 目标2
     var targetArray = [tar1, tar2]  //目标数组
     var obj = {}
-    var n = initTargetVertexBuffer(obj, targetArray);
-    initMatrix(obj)
-    drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
+    var targetPos = computeTargetPosition(targetArray)
+    // var n = initTargetVertexBuffer(obj, tarpos);
+    // initMatrix(obj)
+    // drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
 
-
+    // 绘制目标坐标
+    for (let i = 0; i < targetPos.length; i = i + 3) {
+        var obj = initTextVertexBuffer(targetPos[i], targetPos[i + 1], targetPos[i + 2])
+        initMatrix(obj)
+        var texture = initTextTextures(textProgram, i / 3 + 1)
+        if (!texture) {
+            console.log('初始化纹理信息失败')
+            return
+        }
+        drawTargetBatch(textProgram, obj, texture)
+    }
 }
 
 
@@ -350,17 +386,9 @@ function transformAngleToRadian(angle) {
     return angle * Math.PI / 180
 }
 
-/**
- * 初始化目标的顶点缓冲区
- * @param {*} obj 数据存储对象
- * @returns 顶点个数
- */
-function initTargetVertexBuffer(obj, array) {
+function computeTargetPosition(array) {
     // 目标点个数
     var n = array.length;
-
-    // 计算目标点坐标
-    // 传入参数：弧度制纬度 弧度制精度 半径
     var verticesData = []
     for (let i = 0; i < n; i++) {
         let direction = transformAngleToRadian(array[i].direction)
@@ -369,13 +397,55 @@ function initTargetVertexBuffer(obj, array) {
         let { x, y, z } = transformSphericalToWebGL(direction, pitch, radius)
         verticesData.push(x, y, z)
     }
-    var vertices = new Float32Array(verticesData)
+    return verticesData
+}
+
+/**
+ * 初始化目标的顶点缓冲区
+ * @param {*} obj 数据存储对象
+ * @returns 顶点个数
+ */
+function initTargetVertexBuffer(obj, vertexdata) {
+    var vertices = new Float32Array(vertexdata)
 
     // 适用对象返回缓冲区
     obj.vertexBuffer = initArrayBufferForLaterUse(gl, vertices, 3, gl.FLOAT);
 
     //返回点的个数
-    return n;
+    return vertices.length / 3;
+}
+
+
+/**
+ * 初始化文字的缓冲区对象
+ * @param {*} xpos 文字的x坐标
+ * @param {*} ypos 文字的y坐标
+ * @param {*} zpos 文字的z坐标
+ * @returns 缓冲区对象
+ */
+function initTextVertexBuffer(xpos, ypos, zpos) {
+    var textSideWidth = 0.15
+    var textSideHeight = 0.15
+    var positions = [
+        xpos - textSideWidth, ypos + textSideHeight, zpos,
+        xpos - textSideWidth, ypos - textSideHeight, zpos,
+        xpos + textSideWidth, ypos + textSideHeight, zpos,
+        xpos + textSideWidth, ypos - textSideHeight, zpos
+    ];
+    var texCoords = [
+        0.0, 1.0,
+        0.0, 0.0,
+        1.0, 1.0,
+        1.0, 0.0,
+    ];
+    //创建缓冲区对象
+    var obj = {}
+
+    obj.vertexBuffer = initArrayBufferForLaterUse(gl, new Float32Array(positions), 3, gl.FLOAT)
+
+    obj.texcoordBuffer = initArrayBufferForLaterUse(gl, new Float32Array(texCoords), 2, gl.FLOAT)
+
+    return obj;
 }
 
 /**
@@ -562,6 +632,133 @@ function drawTargets(program, n, color, mode = POINT_MODE, obj) {
     if (mode === POINT_MODE) {
         gl.drawArrays(gl.POINTS, 0, n);
     }
+}
+
+
+/**
+ * 绘制目标编号
+ * @param {*} program 程序对象
+ * @param {*} obj 缓冲区对象
+ * @param {*} texture 纹理
+ * @returns 
+ */
+function drawTargetBatch(program, obj, texture) {
+
+    // 开启着色器
+    gl.useProgram(program)
+
+    // 模型视图投影矩阵
+    var u_ModelViewPersMatrix = gl.getUniformLocation(program, 'u_ModelViewPersMatrix');
+    gl.uniformMatrix4fv(u_ModelViewPersMatrix, false, obj.modeViewProjectMatrix.elements);
+
+    // 目标位置
+    var a_Position = gl.getAttribLocation(program, 'a_Position');
+    if (a_Position < 0) {
+        console.log('Failed to get the storage location of a_Position');
+        return -1;
+    }
+    initAttributeVariable(gl, a_Position, obj.vertexBuffer)
+
+    // 纹理
+    var a_TexCoord = gl.getAttribLocation(program, 'a_TexCoord');
+    if (a_TexCoord < 0) {
+        console.log('Failed to get the storage location of a_TexCoord');
+        return -1;
+    }
+    initAttributeVariable(gl, a_TexCoord, obj.texcoordBuffer)
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+}
+
+
+/**
+ * 初始化文字纹理
+ * @param {*} program 程序对象
+ * @param {*} text 文字
+ * @returns 文字纹理
+ */
+function initTextTextures(program, text) {
+    // 获取采样器变量
+    program.u_Sampler = gl.getUniformLocation(program, 'u_Sampler');
+    if (!program.u_Sampler) {
+        console.log('无法获取u_Sampler变量的存储地址');
+        return false;
+    }
+    // 创建纹理对象
+    var texture = gl.createTexture()
+    if (!texture) {
+        console.log('无法创建纹理对象');
+        return false;
+    }
+    var canvas = document.createElement('canvas')
+    if (!canvas) {
+        console.log('无法创建canvas对象')
+        return false
+    }
+
+    // 这里的宽高和什么对应的?
+    canvas.width = 200
+    canvas.height = 256
+
+    // 获取上下文
+    var ctx = canvas.getContext('2d')
+    if (!ctx) {
+        console.log('无法获取2d上下文')
+        return false
+    }
+    // 绘制矩形 起始点 矩形宽高
+    ctx.fillStyle = 'yellow';//设置填充颜色
+    ctx.fillStyle = 'rgba(255,255,255,0.0)' //设置背景颜色为透明色
+    ctx.strokeStyle = "red";
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // 设置文字的属性？
+    ctx.textBaseline = 'middle';
+    ctx.font = '120px bold sans-serif';
+    ctx.fillStyle = 'rgba(200,0,0,1.0)'
+
+    // 写一个文字
+    var textwidth = ctx.measureText(text).width// 检查字体的宽度
+
+    // 文字内容 开始绘制文本的x坐标 开始绘制文本的y坐标
+    // x 的计算是居中绘制 y的计算大致是居中但是没有考虑文本高度
+    ctx.fillText(text, (canvas.width - textwidth) / 2, canvas.height / 2)
+
+    //配置纹理
+    loadTexture(program, texture, program.u_Sampler, canvas)
+    return texture;
+}
+
+
+/**
+ * 配置纹理参数
+ * @param {*} program 程序对象
+ * @param {*} texture 纹理
+ * @param {*} u_Sampler 采样器变量
+ * @param {*} image 纹理图像
+ */
+function loadTexture(program, texture, u_Sampler, image) {
+    //对纹理对象进行y轴反转
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)   //纹理坐标系统的左下角是00 
+    //开启0号纹理单元
+    gl.activeTexture(gl.TEXTURE0)   //管理纹理图像 一张纹理图像对应一个纹理单元 使用之前要先激活
+    //向target绑定纹理对象
+    gl.bindTexture(gl.TEXTURE_2D, texture)  //纹理单元与纹理图像的绑定
+
+    //配置纹理参数
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)//纹理图像如何分配给所选范围，设置参数，如何内插出片元
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)//纹理图像如何分配给所选范围，设置参数，如何内插出片元
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)//纹理图像如何分配给所选范围，设置参数，如何内插出片元
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)//传入图像，纹理图像就存储在webgl中
+
+    //配置纹理图像
+    gl.useProgram(program) //指定程序对象TODO:
+    gl.uniform1i(u_Sampler, 0)  //usampler就是纹理单元编号
+    gl.bindTexture(gl.TEXTURE_2D, null) //解绑纹理对象
+
 }
 
 
