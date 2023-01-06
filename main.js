@@ -122,9 +122,9 @@ var TRIANGLE_MODE = 'TRIANGLE'
 var LINE_MODE = 'LINE'
 var POINT_MODE = 'POINT'
 // 旋转矩阵
-var ROTATE_AXIS = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]   // 旋转轴线，分别对应绕X、Y、Z轴旋转
-var rotateAngle = 0.0   // 旋转角度
-var rotateMode = 0      // 旋转模式，0、1、2分别对应绕X、Y、Z轴旋转
+var rotateAngle_X = 0.0   // 绕X轴旋转角度
+var rotateAngle_Y = 0.0   // 绕Y轴旋转角度
+var rotateAngle_Z = 0.0   // 绕Z轴旋转角度
 // 不同着色器
 var sphereProgram = {}  //球体着色器
 var targetProgram = {}  //目标着色器
@@ -366,7 +366,9 @@ function initSphereVertexBuffer(type = TRIANGLE_MODE, pre1, pre2, obj) {
 function initMatrix(obj) {
     //设置模型矩阵
     var modelMatrix = new Matrix4()
-    modelMatrix.setRotate(rotateAngle, ...ROTATE_AXIS[rotateMode])
+    modelMatrix.setRotate(rotateAngle_X, 1.0, 0.0, 0.0)
+    modelMatrix.rotate(rotateAngle_Y, 0.0, 1.0, 0.0)
+    modelMatrix.rotate(rotateAngle_Z, 0.0, 0.0, 1.0)
 
     //设置视图矩阵
     var viewMatrix = new Matrix4()
@@ -583,24 +585,29 @@ function drawSphere(program, indices_length, color, mode = TRIANGLE_MODE, obj) {
     // 自动旋转
     if (isRoundScan) {
         requestAnimationFrame(main)
-        rotateAngle = (rotateAngle + 1.0) % 360.0
+        rotateAngle_Y = (rotateAngle_Y + 1.0) % 360.0
     }
     if (isSectorScan) {
         requestAnimationFrame(main)
         // 处于角度增加状态
         if (isAdd) {
-            rotateAngle = (rotateAngle + 1.0) % 360.0
-            if (rotateAngle >= endDirection) {
-                rotateAngle = endDirection
+            rotateAngle_Y = (rotateAngle_Y + 1.0) % 360.0
+            if (rotateAngle_Y >= endDirection) {
+                rotateAngle_Y = endDirection
                 isAdd = false
             }
         } else {
-            rotateAngle = (rotateAngle - 1.0) % 360.0
-            if (rotateAngle <= startDirection) {
-                rotateAngle = startDirection
+            rotateAngle_Y = (rotateAngle_Y - 1.0) % 360.0
+            if (rotateAngle_Y <= startDirection) {
+                rotateAngle_Y = startDirection
                 isAdd = true
             }
         }
+    }
+    if (isStareScan) {
+        requestAnimationFrame(main)
+        rotateAngle_Y = stareDirection
+        rotateAngle_X = starePitch
     }
 
 }
@@ -856,14 +863,12 @@ function initControlMode() {
         isRoundScan = !isRoundScan
         isSectorScan = false
         isStareScan = false
-        rotateMode = 1
         main()
     }
     bt_sectorscan.onclick = function () {
         isSectorScan = !isSectorScan
         isRoundScan = false
         isStareScan = false
-        rotateMode = 1
         startDirection = formatInputAngle(Number(ip_startdirection.value), MIN_DIRECTION, MAX_DIRECTION)
         endDirection = formatInputAngle(Number(ip_enddirection.value), MIN_DIRECTION, MAX_DIRECTION)
         main()
