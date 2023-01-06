@@ -6,17 +6,131 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>测试入口</title>
+    <style>
+        #controlModePanel {
+            box-sizing: border-box;
+            width: 400px;
+            background-color: #8eac91;
+            padding: 8px;
+            padding-bottom: 13px;
+            border: 2px #4CAF50 solid;
+        }
+
+        #controlModeHead {
+            text-align: center;
+            font-size: 16px;
+            font-family: "Microsoft YaHei";
+            font-weight: 700;
+            color: #3e8e41;
+        }
+
+        button.controlmode {
+            display: inline-block;
+            padding: 5px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            outline: none;
+            color: #fff;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px #999;
+        }
+
+        button.controlmode:hover {
+            background-color: #3e8e41
+        }
+
+        button.controlmode:active {
+            background-color: #3e8e41;
+            box-shadow: 0 2px #666;
+            transform: translateY(2px);
+        }
+
+        div.divider {
+            height: 15px;
+            opacity: 0;
+        }
+
+        div.param {
+            display: inline-block;
+            width: 120px;
+            margin: 0 10px;
+        }
+
+        lable.paramkey {
+            display: inline-block;
+            width: 70px;
+            color: white;
+            font-size: 14px;
+        }
+
+        input.paramvalue {
+            width: 40px;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 3px #999;
+        }
+
+        /* datalist {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            writing-mode: vertical-lr;
+            width: 200px;
+        }
+
+        option {
+            padding: 0;
+        }
+
+        input[type="range"] {
+            width: 200px;
+            margin: 0;
+        } */
+    </style>
 </head>
 
 <body onload="main()">
     <canvas id="webgl" width="400" height="400"></canvas>
-    <br />
-    <button id="roundscan">周扫模式</button>
-    <br />
-    <button id="sectorscan">扇扫模式</button>
-    起始方位角：<input type="number" id="startdirection" />
-    终止方位角：<input type="number" id="enddirection" />
-    <!-- <button id="starescan">凝视模式</button> -->
+    <div id="controlModePanel">
+        <div id="controlModeHead">工作模式</div>
+        <button class="controlmode" id="roundscan">周扫模式</button>
+        <div class="divider"></div>
+        <button class="controlmode" id="sectorscan">扇扫模式</button>
+        <div class="param">
+            <lable class="paramkey">起始方位角</lable>
+            <input class="paramvalue" type="number" id="startdirection" />
+        </div>
+        <div class="param">
+            <lable class="paramkey">终止方位角</lable>
+            <input class="paramvalue" type="number" id="enddirection" />
+        </div>
+        <div class="divider"></div>
+        <button class="controlmode" id="starescan">凝视模式</button>
+        <div class="param">
+            <lable class="paramkey">方位角</lable>
+            <input class="paramvalue" type="number" id="staredirection" />
+        </div>
+
+        <div class="param">
+            <lable class="paramkey">俯仰角</lable>
+            <input class="paramvalue" type="number" id="starepitch" />
+        </div>
+
+
+        <!-- <input type="range" id="temp" name="temp" list="tickmarks" />
+        <datalist id="tickmarks">
+            <option value="0" label="0°"></option>
+            <option value="25" label="90°"></option>
+            <option value="50" label="180°"></option>
+            <option value="75" label="270°"></option>
+            <option value="100" label="360°"></option>
+        </datalist> -->
+    </div>
+
 </body>
 
 <script src="./lib/webgl-utils.js"></script>
