@@ -107,6 +107,9 @@ var MAX_DIRECTION = 360.0                       // 最大方位角
 var MIN_PITCH = -90.0                           // 最小俯仰角
 var MAX_PITCH = 90.0                            // 最大俯仰角
 
+// 交互相关
+var isShiftKeyDown = false                      //Shift键是否按下
+
 /* WebGL绘制 */
 /*--------------------------------------------------------------------------------------------------- */
 // 获取容器
@@ -927,8 +930,10 @@ function formatInputAngle(angle, min, max) {
  * 初始化交互事件
  */
 function initInterActionEvent() {
-    // 鼠标滚轮事件
+    // 鼠标滚轮事件 —— 缩放
     document.onmousewheel = function (e) {
+        // 键盘按下shift键时，才允许缩放
+        if (!isShiftKeyDown) return
         if (e.wheelDelta > 0) {
             scale_X = scale_X * 1.1
             scale_Y = scale_Y * 1.1
@@ -944,5 +949,24 @@ function initInterActionEvent() {
             scale_Z = scale_Z * 0.9
         }
         main()
+    }
+    // 鼠标按下松开事件
+    document.onkeydown = function (event) {
+        switch (event.key) {
+            case 'Shift':
+                isShiftKeyDown = true
+                break;
+            default:
+                break;
+        }
+    }
+    document.onkeyup = function (event) {
+        switch (event.key) {
+            case 'Shift':
+                isShiftKeyDown = false
+                break;
+            default:
+                break;
+        }
     }
 }
