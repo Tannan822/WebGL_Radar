@@ -84,7 +84,9 @@ var bt_roundscan = document.getElementById('roundscan')
 var bt_sectorscan = document.getElementById('sectorscan')
 var ip_startdirection = document.getElementById('startdirection')
 var ip_enddirection = document.getElementById('enddirection')
-// var bt_starescan = document.getElementById('starescan')
+var bt_starescan = document.getElementById('starescan')
+var ip_staredirection = document.getElementById('staredirection')
+var ip_starepitch = document.getElementById('starepitch')
 
 // 工作模式相关参数
 var isRoundScan = false                         // 周扫模式
@@ -92,12 +94,15 @@ var isSectorScan = false                        // 扇扫模式
 var startDirection = 0                          // 起始方位角（扇扫模式下有效）
 var endDirection = 360                          // 终止方位角（扇扫模式下有效）
 var isAdd = true                                // 角度增加/减小（扇扫模式下有效）
-// var isStareScan = false
-// var stareDirection = 0
-// var starePitch = 0
+var isStareScan = false                         // 凝视模式
+var stareDirection = 0                          // 凝视方位角（凝视模式下有效）
+var starePitch = 0                              // 凝视俯仰角（凝视模式下有效）
 
 var MIN_DIRECTION = 0.0                         // 最小方位角
 var MAX_DIRECTION = 360.0                       // 最大方位角
+
+var MIN_PITCH = -90.0                           // 最小俯仰角
+var MAX_PITCH = 90.0                            // 最大俯仰角
 
 /* WebGL绘制 */
 /*--------------------------------------------------------------------------------------------------- */
@@ -116,8 +121,10 @@ var longitudeBands = 36;//经度带
 var TRIANGLE_MODE = 'TRIANGLE'
 var LINE_MODE = 'LINE'
 var POINT_MODE = 'POINT'
-// 旋转矩阵绕Y轴的旋转角度
-var rotateAngle = 0.0
+// 旋转矩阵
+var ROTATE_AXIS = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]   // 旋转轴线，分别对应绕X、Y、Z轴旋转
+var rotateAngle = 0.0   // 旋转角度
+var rotateMode = 0      // 旋转模式，0、1、2分别对应绕X、Y、Z轴旋转
 // 不同着色器
 var sphereProgram = {}  //球体着色器
 var targetProgram = {}  //目标着色器
@@ -359,7 +366,7 @@ function initSphereVertexBuffer(type = TRIANGLE_MODE, pre1, pre2, obj) {
 function initMatrix(obj) {
     //设置模型矩阵
     var modelMatrix = new Matrix4()
-    modelMatrix.setRotate(rotateAngle, 0.0, 1.0, 0.0)
+    modelMatrix.setRotate(rotateAngle, ...ROTATE_AXIS[rotateMode])
 
     //设置视图矩阵
     var viewMatrix = new Matrix4()
@@ -702,6 +709,7 @@ function initTextTextures(program, text) {
     // 这里的宽高和什么对应的?
     canvas.width = 200
     canvas.height = 256
+    // canvas.style.background = 'rgba(255, 255, 255, 0.0)'
 
     // 获取上下文
     var ctx = canvas.getContext('2d')
@@ -711,7 +719,7 @@ function initTextTextures(program, text) {
     }
     // 绘制矩形 起始点 矩形宽高
     ctx.fillStyle = 'yellow';//设置填充颜色
-    ctx.fillStyle = 'rgba(255,255,255,0.0)' //设置背景颜色为透明色
+    // ctx.fillStyle = 'rgba(255,255,255,0.0)' //设置背景颜色为透明色
     ctx.strokeStyle = "red";
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
@@ -847,27 +855,37 @@ function initControlMode() {
     bt_roundscan.onclick = function () {
         isRoundScan = !isRoundScan
         isSectorScan = false
-        // isStareScan = false
+        isStareScan = false
+        rotateMode = 1
         main()
     }
     bt_sectorscan.onclick = function () {
         isSectorScan = !isSectorScan
         isRoundScan = false
-        // isStareScan = false
-        startDirection = formatInputDirection(Number(ip_startdirection.value))
-        endDirection = formatInputDirection(Number(ip_enddirection.value))
+        isStareScan = false
+        rotateMode = 1
+        startDirection = formatInputAngle(Number(ip_startdirection.value), MIN_DIRECTION, MAX_DIRECTION)
+        endDirection = formatInputAngle(Number(ip_enddirection.value), MIN_DIRECTION, MAX_DIRECTION)
+        main()
+    }
+    bt_starescan.onclick = function () {
+        isStareScan = !isStareScan
+        isRoundScan = false
+        isSectorScan = false
+        stareDirection = formatInputAngle(Number(ip_startdirection.value), MIN_DIRECTION, MAX_DIRECTION)
+        starePitch = formatInputAngle(Number(ip_starepitch.value), MIN_PITCH, MAX_PITCH)
         main()
     }
 }
 
 /**
- * 格式化输入方位角
+ * 格式化输入角度
  * @param {*} angle 方位角
- * @param {*} min 最小方位角范围
- * @param {*} max 最大方位角范围
+ * @param {*} min 最小角度范围
+ * @param {*} max 最大角度范围
  * @returns 
  */
-function formatInputDirection(angle, min, max) {
+function formatInputAngle(angle, min, max) {
     angle = angle < min ? min : angle > max ? max : angle
     return angle
 }
