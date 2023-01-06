@@ -108,7 +108,12 @@ var MIN_PITCH = -90.0                           // 最小俯仰角
 var MAX_PITCH = 90.0                            // 最大俯仰角
 
 // 交互相关
-var isShiftKeyDown = false                      //Shift键是否按下
+// 键盘相关
+var isShiftKeyDown = false                      // Shift键是否按下
+// 鼠标拖拽事件
+var isMouseStart = false                        // 鼠标动作开始
+var startPoint = [0, 0]                         // 鼠标按下起始点坐标
+var curPoint = [0, 0]                           // 鼠标移动当前点坐标
 
 /* WebGL绘制 */
 /*--------------------------------------------------------------------------------------------------- */
@@ -931,10 +936,10 @@ function formatInputAngle(angle, min, max) {
  */
 function initInterActionEvent() {
     // 鼠标滚轮事件 —— 缩放
-    document.onmousewheel = function (e) {
+    document.onmousewheel = function (event) {
         // 键盘按下shift键时，才允许缩放
         if (!isShiftKeyDown) return
-        if (e.wheelDelta > 0) {
+        if (event.wheelDelta > 0) {
             scale_X = scale_X * 1.1
             scale_Y = scale_Y * 1.1
             scale_Z = scale_Z * 1.1
@@ -968,5 +973,30 @@ function initInterActionEvent() {
             default:
                 break;
         }
+    }
+    document.onmousedown = function (event) {
+        if (!isShiftKeyDown) return
+        isMouseStart = true
+        startPoint[0] = event.offsetX
+        startPoint[1] = event.offsetY
+    }
+    document.onmousemove = function (event) {
+        if (!isShiftKeyDown || !isMouseStart) return
+        curPoint[0] = event.offsetX
+        curPoint[1] = event.offsetY
+        // 判断向左还是向右
+        if (curPoint[0] - startPoint[0] > 0) {
+            // 向左
+            rotateAngle_Y += 2.0
+        } else {
+            // 向右
+            rotateAngle_Y -= 2.0
+        }
+        main()
+    }
+    document.onmouseup = function (event) {
+        isMouseStart = false
+        startPoint = [0, 0]
+        curPoint = [0, 0]
     }
 }
