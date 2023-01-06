@@ -12,15 +12,16 @@ var SPHERE_VSHADER_SOURCE = "" +
     "attribute vec3 a_Normal;\n" +              //法向量
     "uniform mat4 u_ModelViewMatrix;\n" +       //模型视图矩阵
     "uniform mat4 u_ModelViewPersMatrix;\n" +   //模型视图投影矩阵
+    "uniform mat4 u_ScaleMatrix;\n" +           //缩放矩阵
     "varying vec4 v_color;\n" +                 //漫反射后的rgb值
     "void main() {\n" +
     "   vec3 normal = normalize(a_Normal);\n" +    //归一化法向量
-    "   vec4 targetPosition = u_ModelViewMatrix * vec4(a_Position, 1.0);\n" +   //计算可观察点坐标位置
+    "   vec4 targetPosition = u_ScaleMatrix * u_ModelViewMatrix * vec4(a_Position, 1.0);\n" +   //计算可观察点坐标位置
     "   vec3 light = normalize(vec3(u_LightPosition - targetPosition));\n" +    //归一化入射光线向量
     "   float dot = max(dot(light, normal), 0.0);\n" +                          //归一化入射光线向量
     "   vec3 diffuse = u_LightColor * u_Color * dot;\n" +
     "   v_color = vec4(diffuse,1.0);\n" +
-    "   gl_Position = u_ModelViewPersMatrix * vec4(a_Position, 1.0);\n" +
+    "   gl_Position = u_ScaleMatrix *  u_ModelViewPersMatrix * vec4(a_Position, 1.0);\n" +
     "}\n"
 
 // 片段着色器
@@ -37,10 +38,11 @@ var SPHERE_FSHADER_SOURCE = "" +
 var TARGET_VSHADER_SOURCE =
     'attribute vec4 a_Position;\n' +
     "uniform mat4 u_ModelViewPersMatrix;\n" +   //模型视图投影矩阵
+    "uniform mat4 u_ScaleMatrix;\n" +           //缩放矩阵
     "uniform vec3 u_Color;\n" +
     "varying vec4 v_Color;\n" +
     'void main() {\n' +
-    '  gl_Position = u_ModelViewPersMatrix * a_Position;\n' +
+    '  gl_Position = u_ScaleMatrix * u_ModelViewPersMatrix * a_Position;\n' +
     '  gl_PointSize = 10.0;\n' +
     '  v_Color = vec4(u_Color, 1.0);\n' +
     '}\n';
@@ -58,10 +60,11 @@ var TARGET_FSHADER_SOURCE =
 var TEXT_VSHADER_SOURCE =
     "attribute vec4 a_Position;\n" +
     "uniform mat4 u_ModelViewPersMatrix;\n" +
+    "uniform mat4 u_ScaleMatrix;\n" +           //缩放矩阵
     "attribute vec2 a_TexCoord;\n" +
     "varying vec2 v_TexCoord;\n" +
     "void main(){\n" +
-    "   gl_Position = u_ModelViewPersMatrix * a_Position;\n" +
+    "   gl_Position = u_ScaleMatrix * u_ModelViewPersMatrix * a_Position;\n" +
     "   v_TexCoord = a_TexCoord;\n" +
     "}\n"
 
@@ -125,6 +128,10 @@ var POINT_MODE = 'POINT'
 var rotateAngle_X = 0.0   // 绕X轴旋转角度
 var rotateAngle_Y = 0.0   // 绕Y轴旋转角度
 var rotateAngle_Z = 0.0   // 绕Z轴旋转角度
+// 缩放矩阵
+var scale_X = 1.0   // 在X轴上的缩放因子
+var scale_Y = 1.0   // 在Y轴上的缩放因子
+var scale_Z = 1.0   // 在Z轴上的缩放因子
 // 不同着色器
 var sphereProgram = {}  //球体着色器
 var targetProgram = {}  //目标着色器
@@ -383,6 +390,12 @@ function initMatrix(obj) {
 
     //模型视图投影矩阵
     obj.modeViewProjectMatrix = projMatrix.multiply(obj.modelViewMatrix);
+
+    //设置缩放矩阵
+    var scaleMatrix = new Matrix4()
+    scaleMatrix.setScale(scale_X, scale_Y, scale_Z)
+    obj.scaleMatrix = scaleMatrix
+
 }
 
 
@@ -544,6 +557,10 @@ function drawSphere(program, indices_length, color, mode = TRIANGLE_MODE, obj) {
     var u_ModelViewPersMatrix = gl.getUniformLocation(program, 'u_ModelViewPersMatrix');
     gl.uniformMatrix4fv(u_ModelViewPersMatrix, false, obj.modeViewProjectMatrix.elements);
 
+    // 缩放矩阵
+    var u_ScaleMatrix = gl.getUniformLocation(program, 'u_ScaleMatrix');
+    gl.uniformMatrix4fv(u_ScaleMatrix, false, obj.scaleMatrix.elements);
+
     // 光源位置
     let u_LightPosition = gl.getUniformLocation(program, 'u_LightPosition');
     gl.uniform4fv(u_LightPosition, [10.0, 10.0, 10.0, 1.0]);
@@ -630,6 +647,10 @@ function drawTargets(program, n, color, mode = POINT_MODE, obj) {
     var u_ModelViewPersMatrix = gl.getUniformLocation(program, 'u_ModelViewPersMatrix');
     gl.uniformMatrix4fv(u_ModelViewPersMatrix, false, obj.modeViewProjectMatrix.elements);
 
+    // 缩放矩阵
+    var u_ScaleMatrix = gl.getUniformLocation(program, 'u_ScaleMatrix');
+    gl.uniformMatrix4fv(u_ScaleMatrix, false, obj.scaleMatrix.elements);
+
     // 目标颜色
     let u_Color = gl.getUniformLocation(program, 'u_Color');
     gl.uniform3fv(u_Color, color);
@@ -664,6 +685,10 @@ function drawTargetBatch(program, obj, texture) {
     // 模型视图投影矩阵
     var u_ModelViewPersMatrix = gl.getUniformLocation(program, 'u_ModelViewPersMatrix');
     gl.uniformMatrix4fv(u_ModelViewPersMatrix, false, obj.modeViewProjectMatrix.elements);
+
+    // 缩放矩阵
+    var u_ScaleMatrix = gl.getUniformLocation(program, 'u_ScaleMatrix');
+    gl.uniformMatrix4fv(u_ScaleMatrix, false, obj.scaleMatrix.elements);
 
     // 目标位置
     var a_Position = gl.getAttribLocation(program, 'a_Position');
