@@ -145,6 +145,9 @@ function main() {
     // 初始化工作模式
     initControlMode()
 
+    // 初始化交互事件
+    initInterActionEvent()
+
     // 判断是否有效
     if (!gl) {
         console.log("你的浏览器不支持WebGL");
@@ -918,4 +921,28 @@ function initControlMode() {
 function formatInputAngle(angle, min, max) {
     angle = angle < min ? min : angle > max ? max : angle
     return angle
+}
+
+/**
+ * 初始化交互事件
+ */
+function initInterActionEvent() {
+    // 鼠标滚轮事件
+    document.onmousewheel = function (e) {
+        if (e.wheelDelta > 0) {
+            scale_X = scale_X * 1.1
+            scale_Y = scale_Y * 1.1
+            scale_Z = scale_Z * 1.1
+            if (scale_X > 1 || scale_Y > 1 || scale_Z > 1) {
+                scale_X = 1
+                scale_Y = 1
+                scale_Z = 1
+            }
+        } else {
+            scale_X = scale_X * 0.9
+            scale_Y = scale_Y * 0.9
+            scale_Z = scale_Z * 0.9
+        }
+        main()
+    }
 }
