@@ -938,7 +938,7 @@ function loadShader(gl, type, source) {
 
 
 function drawTrack(program, n, color, obj) {
-    console.log(program, n, color, obj)
+
     // 开启着色器
     gl.useProgram(program)
 
