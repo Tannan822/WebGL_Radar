@@ -78,6 +78,26 @@ var TEXT_FSHADER_SOURCE =
     "   gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n" +
     "}\n"
 
+// 绘制目标轨迹的着色器
+var TRACK_VSHADER_SOURCE =
+    'attribute vec4 a_Position;\n' +
+    "uniform mat4 u_ModelViewPersMatrix;\n" +   //模型视图投影矩阵
+    "uniform mat4 u_ScaleMatrix;\n" +           //缩放矩阵
+    "uniform vec3 u_Color;\n" +
+    "varying vec4 v_Color;\n" +
+    'void main() {\n' +
+    '  gl_Position = u_ScaleMatrix * u_ModelViewPersMatrix * a_Position;\n' +
+    '  v_Color = vec4(u_Color, 1.0);\n' +
+    '}\n';
+
+var TRACK_FSHADER_SOURCE =
+    "#ifdef GL_ES\n" +
+    " precision mediump float;\n" +
+    "#endif\n" +
+    "varying vec4 v_color;\n" +
+    'void main() {\n' +
+    '  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n' +
+    '}\n';
 
 /* js部分 */
 /*--------------------------------------------------------------------------------------------------- */
@@ -142,8 +162,9 @@ var scale_Y = 1.0   // 在Y轴上的缩放因子
 var scale_Z = 1.0   // 在Z轴上的缩放因子
 // 不同着色器
 var sphereProgram = {}  //球体着色器
-var targetProgram = {}  //目标着色器
-var textProgram = {}  //文本着色器
+var targetProgram = {}  //目标着色器（点）
+var textProgram = {}    //文本着色器
+var trackProgram = {}   //轨迹着色器（线）
 
 /**
  * 主函数
@@ -168,7 +189,9 @@ function main() {
     targetProgram = createProgram(gl, TARGET_VSHADER_SOURCE, TARGET_FSHADER_SOURCE);
     // 初始化目标文本着色器
     textProgram = createProgram(gl, TEXT_VSHADER_SOURCE, TEXT_FSHADER_SOURCE);
-    if (!sphereProgram || !targetProgram || !textProgram) {
+    // 初始化目标轨迹着色器
+    trackProgram = createProgram(gl, TRACK_VSHADER_SOURCE, TRACK_FSHADER_SOURCE)
+    if (!sphereProgram || !targetProgram || !textProgram || !trackProgram) {
         console.log("无法初始化着色器");
         return;
     }
@@ -198,7 +221,6 @@ function main() {
     // drawSphere(sphereProgram, indices_length, [0.0, 0.0, 0.0], LINE_MODE, obj);
 
     // 绘制目标
-    // 传入参数：弧度制纬度 弧度制精度 半径
     var tar1 = { direction: 30, pitch: 60, radius: 2 }  //目标1
     var tar2 = { direction: 45, pitch: 45, radius: 2 }  // 目标2
     var targetArray = [tar1, tar2]  //目标数组
@@ -208,7 +230,7 @@ function main() {
     initMatrix(obj)
     drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
 
-    // 绘制目标坐标
+    // 绘制目标编号
     // for (let i = 0; i < targetPos.length; i = i + 3) {
     //     var obj = initTextVertexBuffer(targetPos[i], targetPos[i + 1], targetPos[i + 2])
     //     initMatrix(obj)
@@ -219,6 +241,30 @@ function main() {
     //     }
     //     drawTargetBatch(textProgram, obj, texture)
     // }
+
+    // 绘制目标轨迹
+    // 传入目标轨迹坐标
+    var track = []
+    var track = [
+        { direction: 30, pitch: 70, radius: 2 },
+        { direction: 29, pitch: 69, radius: 2 },
+        { direction: 27, pitch: 68, radius: 2 },
+        { direction: 22, pitch: 65, radius: 2 },
+        { direction: 29, pitch: 64, radius: 2 },
+        { direction: 23, pitch: 63, radius: 2 },
+        { direction: 22, pitch: 62, radius: 2 },
+        { direction: 21, pitch: 61, radius: 2 },
+        { direction: 21, pitch: 61, radius: 2 },
+        { direction: 21, pitch: 61, radius: 2 },
+        { direction: 21, pitch: 61, radius: 2 },
+        { direction: 21, pitch: 61, radius: 2 },
+    ]
+    var obj = {}
+    var trackPos = computeTargetPosition(track)
+    var n = initTargetVertexBuffer(obj, trackPos);
+    initMatrix(obj)
+    drawTrack(trackProgram, n, [1.0, 0.0, 0.0], obj)
+
 }
 
 
@@ -888,6 +934,36 @@ function loadShader(gl, type, source) {
     }
 
     return shader
+}
+
+
+function drawTrack(program, n, color, obj) {
+    console.log(program, n, color, obj)
+    // 开启着色器
+    gl.useProgram(program)
+
+    // 模型视图投影矩阵
+    var u_ModelViewPersMatrix = gl.getUniformLocation(program, 'u_ModelViewPersMatrix');
+    gl.uniformMatrix4fv(u_ModelViewPersMatrix, false, obj.modeViewProjectMatrix.elements);
+
+    // 缩放矩阵
+    var u_ScaleMatrix = gl.getUniformLocation(program, 'u_ScaleMatrix');
+    gl.uniformMatrix4fv(u_ScaleMatrix, false, obj.scaleMatrix.elements);
+
+    // 目标颜色
+    let u_Color = gl.getUniformLocation(program, 'u_Color');
+    gl.uniform3fv(u_Color, color);
+
+    // 目标位置
+    var a_Position = gl.getAttribLocation(program, 'a_Position');
+    if (a_Position < 0) {
+        console.log('Failed to get the storage location of a_Position');
+        return -1;
+    }
+    initAttributeVariable(gl, a_Position, obj.vertexBuffer)
+
+    gl.drawArrays(gl.LINE_STRIP, 0, n)
+
 }
 
 /**
