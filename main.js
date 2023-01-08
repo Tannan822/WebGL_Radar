@@ -204,21 +204,21 @@ function main() {
     var targetArray = [tar1, tar2]  //目标数组
     var obj = {}
     var targetPos = computeTargetPosition(targetArray)
-    // var n = initTargetVertexBuffer(obj, tarpos);
-    // initMatrix(obj)
-    // drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
+    var n = initTargetVertexBuffer(obj, targetPos);
+    initMatrix(obj)
+    drawTargets(targetProgram, n, [1.0, 0.0, 0.0], POINT_MODE, obj)
 
     // 绘制目标坐标
-    for (let i = 0; i < targetPos.length; i = i + 3) {
-        var obj = initTextVertexBuffer(targetPos[i], targetPos[i + 1], targetPos[i + 2])
-        initMatrix(obj)
-        var texture = initTextTextures(textProgram, i / 3 + 1)
-        if (!texture) {
-            console.log('初始化纹理信息失败')
-            return
-        }
-        drawTargetBatch(textProgram, obj, texture)
-    }
+    // for (let i = 0; i < targetPos.length; i = i + 3) {
+    //     var obj = initTextVertexBuffer(targetPos[i], targetPos[i + 1], targetPos[i + 2])
+    //     initMatrix(obj)
+    //     var texture = initTextTextures(textProgram, i / 3 + 1)
+    //     if (!texture) {
+    //         console.log('初始化纹理信息失败')
+    //         return
+    //     }
+    //     drawTargetBatch(textProgram, obj, texture)
+    // }
 }
 
 
